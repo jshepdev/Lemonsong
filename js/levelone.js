@@ -1,341 +1,354 @@
-/*
-* Happy Time Lemon Song
-* Copyright 2015
-* Original Gamester
-* 
-*/
+var SideScroller = SideScroller || {};
 
-/* Level one is the only level. It is a multi-environment tiled map. */
-var levelOne = function(game) {  };  // State object created, a function accepting a game Object as parameter
+SideScroller.LevelOne = function(){};
 
-var map;
-var tileset;
-var layer, layer2, layer3;
-var lemons;
-var player, bob;
-var pStartX = 64;
-var pStartY = 600;
-var facing = 'left';
-var jumpTimer = 0;
-var cursors;
-var jumpButton, actionButton;
-var bg;
-var score = 0;
-var counter = 0;
-var score, scoreText;
-var randomx = 0;
-var health = 3;
-var textBubble;
-var textBubbleTimer = 0;
-var bobSpeaking = 0;
+SideScroller.LevelOne.prototype = {
 
-//var nextLevel;
-
-
-levelOne.prototype = {
-
-    preload: function () {
-
-	    this.game.load.tilemap('levelone', 'assets/levelone.json', null, Phaser.Tilemap.TILED_JSON);
-        this.game.load.image('tiles01', 'assets/tiles01.png');
-        this.game.load.image('background', 'assets/sky.png');
-        this.game.load.image('textbubble', 'assets/textbubble.png');
-
-        this.game.load.image('hills', 'assets/hills.png');
-        this.game.load.image('trees', 'assets/trees.png');
-        this.game.load.image('heart', 'assets/heart.png');
-        this.game.load.image('hudlemon', 'assets/hudlemon.png');
-        
-        this.game.load.image('house', 'assets/house.png');
-        this.game.load.image('lemonadestand', 'assets/lemonadestand.png');
-        this.game.load.image('rottenlemon', 'assets/rottenlemon.png', 32, 32);
-
-        this.game.load.spritesheet('lemon', 'assets/lemon.png', 32, 32);
-
-        this.game.load.spritesheet('player', 'assets/player.png', 32, 32);
-        this.game.load.spritesheet('bob', 'assets/bob.png', 32, 32);
-        this.game.load.spritesheet('george', 'assets/george.png', 32, 32);   
-
-
+    preload: function() {
+        // This should be empty now as loading is done in Preload prototype
     },
+    create: function() {
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
 
+        this.jumpTimer = 0;
+        this.score = 0;
+        this.randomx = 0;
+        this.health = 3;
+        this.pStartX = 200;
+        this.pStartY = 700;
+        this.textBubbleTimer = 0;
+        this.bobSpeaking = 0;
+        this.counter = 0;
+        this.facing = 'left';
+        this.bg = this.add.tileSprite(0, 0, 960, 600, 'background').setOrigin(0, 0);
 
-    create:  function() {
+        // Calculate the scale factors
+        const scaleX = gameWidth / this.bg.width;
+        const scaleY = gameHeight / this.bg.height;
 
-        //nextLevel = 'levelTwoState';
-
-        //  We're going to be using physics, so enable the Arcade Physics system
-        this.game.physics.startSystem(Phaser.Physics.ARCADE);
-
-        //  A simple background for our game
-        this.game.stage.backgroundColor = '#000000';
-
-        bg = this.game.add.tileSprite(0, 0, 800, 600, 'background');
-        bg.fixedToCamera = true;
-
-        //bg1 = this.game.add.tileSprite(0, 300, 1600, 300, 'hills');
-        //bg1.fixedToCamera = false;
+        // Set the scale of the tile sprite
+        this.bg.setScale(scaleX, scaleY);
+        this.bg.fixedToCamera = true;
+        this.bg.setScrollFactor(0);
 
         //Adding tilemap stuff
-        map = this.game.add.tilemap('levelone');
-        map.addTilesetImage('tiles01');
+        this.map = this.make.tilemap({ key: 'levelone' });
 
-        map.setCollision([0,1, 2, 3, 4], true, layer);
+        const tileset1 = this.map.addTilesetImage('tiles01', 'tiles01');
+        const hillsTileset = this.map.addTilesetImage('hills', 'hills');
+        const treesTileset = this.map.addTilesetImage('trees', 'trees');
+        const houseTileset = this.map.addTilesetImage('house', 'house');
+        const lemonadeTileset = this.map.addTilesetImage('lemonadestand', 'lemonadestand');
 
-        map.addTilesetImage('hills');
-        map.addTilesetImage('trees');
-        map.addTilesetImage('house');
-        map.addTilesetImage('lemonadestand');
-        
-        layer2 = map.createLayer('layer02');
-        layer3 = map.createLayer('layer03');
-        layer = map.createLayer('layer01');
-        
-        layer2.scrollFactorX = .25
-        layer3.scrollFactorX = .5
+        this.layer2 = this.map.createLayer('layer02', [tileset1, hillsTileset, treesTileset, houseTileset, lemonadeTileset], 0, 0);
+        this.layer3 = this.map.createLayer('layer03', [tileset1, hillsTileset, treesTileset, houseTileset, lemonadeTileset], 0, 0);
+        this.layer = this.map.createLayer('layer01', [tileset1, hillsTileset, treesTileset, houseTileset, lemonadeTileset], 0, 0);
 
-        layer.resizeWorld();
+
+        this.map.setCollision([0, 1, 2, 3, 4], true, this.layer); // Now 'this.layer' is defined
+
+        this.layer2.scrollFactorX = .25
+        this.layer3.scrollFactorX = .5
+
+        this.physics.world.setBounds(0, 0, this.layer.width, this.layer.height);
+        this.cameras.main.setBounds(0, 0, this.layer.width, this.layer.height);
 
         // Add lemons from map
-        lemons = this.game.add.group();
-        lemons.enableBody = true;
+        this.lemons = this.physics.add.group();
+        const checklemons = this.map.createFromObjects('objectlayer', { gid: 907, key: 'lemon', classType: Phaser.Physics.Arcade.Sprite });
 
-        //  And now we convert all of the Tiled objects with an ID of 907 into sprites within the maplemons group
-        map.createFromObjects('objectlayer', 907, 'lemon', 0, true, false, lemons);
-        
-        //  Add animations to all of the lemon sprites
-        lemons.callAll('animations.add', 'animations', 'spin', [0, 1, 2, 3, 4, 5, 6, 7 ,8, 9, 10, 11], 10, true);
-        lemons.callAll('animations.play', 'animations', 'spin');
-    
-        // Add rotten lemon from map
-        rottenlemon = this.game.add.group();
-        rottenlemon.enableBody = true;
+        checklemons.forEach(lemonObject => {
+            // Add the object to your lemons group
+            this.lemons.add(lemonObject);
+            this.physics.world.enableBody(lemonObject, Phaser.Physics.Arcade.STATIC_BODY); // Enable the body *after* creation
+            lemonObject.body.setImmovable(true);
+            
+        });
 
-        // Convert all of the Tiled objects with an ID of 908 into sprites within the rottenlems
-        map.createFromObjects('objectlayer', 908, 'rottenlemon', 0, true, false, rottenlemon);
+        // Add animations to all of the lemon sprites
+        this.anims.create({
+            key: 'lemonSpin', // A unique key for this animation
+            frames: this.anims.generateFrameNumbers('lemon', { start: 0, end: 11 }),
+            frameRate: 10,
+            repeat: -1 // -1 for infinite loop
+        });
 
-		// Add nextLevelObject from map
-        nextLevelObject = this.game.add.group();
-        rottenlemon.enableBody = true;
+        // Play the animation on each lemon sprite in the group
+        this.lemons.getChildren().forEach(lemon => {
+            lemon.play('lemonSpin');
+        });
 
-        // nextLevelOjbect
-        map.createFromObjects('objectlayer', 9, null, 0, true, false, nextLevelObject);
-		
-		
+        // Add rotten lemons from map
+        this.rottenlemon = this.physics.add.group();
+        this.map.createFromObjects('objectlayer', { gid: 908, key: 'rottenLemon' }, this.rottenlemon); // Corrected key
+        this.rottenlemon.getChildren().forEach(rottenLemon => {
+            this.physics.world.enableBody(rottenLemon, Phaser.Physics.Arcade.STATIC_BODY);
+            rottenLemon.body.setImmovable(true);
+        });
+
+        // Add next level object from map
+        this.nextLevelObject = this.physics.add.group();
+        this.map.createFromObjects('objectlayer', { id: 9, key: 'nextLevelTexture' }, this.nextLevelObject);
+        this.nextLevelObject.getChildren().forEach(nextLevel => {
+            this.physics.world.enableBody(nextLevel, Phaser.Physics.Arcade.STATIC_BODY);
+            nextLevel.body.setImmovable(true);
+        });
+
+        // Create NPCs group
+        this.npcs = this.physics.add.group();
+
         // Add Bob from bob
-        bob = this.game.add.sprite(32, 32, 'bob');
-        bob.enableBody = true;
-        bob.x = 600;
-        bob.y = 700;
+        this.bob = this.physics.add.sprite(600, this.pStartY+32, 'bob');
+        this.anims.create({
+            key: 'bobMoving',
+            frames: this.anims.generateFrameNumbers('bob', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.bob.setOrigin(0.5, 1);
+        this.bob.setScale(1, 1);
+        this.bob.setCollideWorldBounds(true);
+        this.bob.name = 'bob'; // Assign a name to the NPC
+        this.npcs.add(this.bob);
+        this.bob.setGravityY(500);
+        this.bob.play('bobMoving');
+        this.bob.nextTargetTime = 0; // Initialize the timer for the first target
 
-        //  Walking right.
-        bob.animations.add('moving', [0, 1, 2, 3], 10, true);
-        bob.anchor.setTo(.5, 1); //so it flips around its middle
-        bob.scale.x = 1; //facing default direction
 
-        this.game.physics.enable(bob, Phaser.Physics.ARCADE);
+        this.isDialogVisible = false;
+        this.currentDialogLines = [];
+        this.currentDialogIndex = 0;
+        this.currentCompanion = null; // To store the NPC we're talking to
 
-        bob.body.collideWorldBounds = true;
-        bob.body.gravity.y = 500;
-        
-        //  Un-comment this on to see the collision tiles
-        // layer.debug = true;
+        // Create the chat box container (initially hidden)
+        this.dialogBox = this.add.container(this.game.config.width / 2, this.game.config.height - 100);
+        const dialogBackground = this.add.graphics()
+            .fillStyle(0x000000, 0.8)
+            .fillRect(-this.game.config.width / 2, -50, this.game.config.width, 100);
+        this.dialogText = this.add.text( -this.game.config.width / 2 + 20, -40, '', { fontFamily: 'Arial', fontSize: 20, color: '#fff', wordWrap: { width: this.game.config.width - 40 } });
+        this.dialogBox.add(dialogBackground);
+        this.dialogBox.add(this.dialogText);
+        this.dialogBox.setDepth(100); // Ensure it's on top
+        this.dialogBox.setVisible(false);
+        this.dialogBox.setScale(scaleX, scaleY);
+        this.dialogBox.fixedToCamera = true;
+        this.dialogBox.setScrollFactor(0);
 
-        //this.game.physics.arcade.gravity.y = 250;
-
+       	this.dialogData = {
+            'bob': [
+                "Hey there, traveler!",
+                "Nice weather we're having, isn't it?",
+                "Come back anytime!"
+            ],
+            'badbob': [
+                "Dude did you just eat that rotton lemon?",
+                "Hey are you feeling okay?"
+            ]
+            // ... more NPCs and their dialog
+        };
         // The player and its settings
-        player = this.game.add.sprite(32, 32, 'player');
-        player.x = pStartX;
-        player.y = pStartY;
+        this.player = this.physics.add.sprite(this.pStartX, this.pStartY, 'player');
+        this.player.setBounceY(0.1);
+        this.player.setCollideWorldBounds(true);
+        this.player.setGravityY(500);
+        this.anims.create({
+            key: 'playerMoving',
+            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.player.setOrigin(0.5, 1);
+        this.player.setScale(1, 1);
+        this.cameras.main.startFollow(this.player);
+        this.player.play('playerMoving');
 
-        this.game.physics.enable(player, Phaser.Physics.ARCADE);
+        // Input
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.jumpButton = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+        this.actionButton = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-        player.body.bounce.y = 0.1;
-        player.body.collideWorldBounds = true;
-        player.body.gravity.y = 500;
-        //player.body.setSize(20, 32, 5, 16);
+        // HUD
+        const hudY = 2; // A fixed Y position for the top of the HUD
 
-        //  Walking right.
-        player.animations.add('moving', [0, 1, 2, 3], 10, true);
-        player.anchor.setTo(.5, 1); //so it flips around its middle
-        player.scale.x = 1; //facing default direction
+        this.scoreText = this.add.text(gameWidth - 28, hudY, this.score, { // Use gameWidth for right alignment
+            fontFamily: 'Arial Black',
+            fontSize: 36,
+            fontWeight: 'bold',
+            stroke: '#000000',
+            strokeThickness: 6,
+            fill: '#FFFF00',
+            align: 'right'
+        }).setOrigin(1, 0).setScrollFactor(0);
 
-        this.game.camera.follow(player);
+        // Lemon HUD icon
+        this.hudlemon = this.add.image(gameWidth - 36 - this.scoreText.width - 16, hudY + 22, 'hudLemon').setScrollFactor(0); // Position relative to score
 
-        cursors = this.game.input.keyboard.createCursorKeys();
-        jumpButton = this.game.input.keyboard.addKey(Phaser.Keyboard.UP);
-        actionButton = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
-
-        //  HUD
-        scoreText = this.game.add.text(764-32, -2, score);
-       
-        //  Center align
-        scoreText.anchor.set(0.0);
-        scoreText.align = 'right';
-
-        //  Font style
-        scoreText.font = 'Arial Black';
-        scoreText.fontSize = 36;
-        scoreText.fontWeight = 'bold';
-
-        //  Stroke color and thickness
-        scoreText.stroke = '#000000';
-        scoreText.strokeThickness = 6;
-        scoreText.fill = '#FFFF00';
-
-        scoreText.fixedToCamera = true;
-
-        //lemon
-        hudlemon = this.game.add.image(800-36, 6, 'hudlemon');
-        hudlemon.fixedToCamera = true;
-
-        var i;
-
-        for(i =0; i < health; i++) {
-         
-            hudheart = this.game.add.image(4+i*36, 4, 'heart');
-            hudheart.fixedToCamera = true;
+        // Health HUD icons
+        for (let i = 0; i < this.health; i++) {
+            const hudheart = this.add.image(20 + i * 36, hudY + 20, 'heart').setScrollFactor(0);
+            this.add.existing(hudheart);
         }
 
-    
+        // Sound effects
+        this.sfx = this.sound.add('coin');
     },
 
     update: function() {
+        // Collide everything with map layer
+        this.physics.add.collider(this.lemons, this.layer);
+        this.physics.add.collider(this.player, this.layer);
+        this.physics.add.collider(this.bob, this.layer);
 
-        //  Collide everything with map layer
-        this.game.physics.arcade.collide(lemons, layer);
-        this.game.physics.arcade.collide(player, layer);
-        this.game.physics.arcade.collide(bob, layer);
-
-        //  Checks to see if the player overlaps with any of the lemons, if he does call the collectLemon function
-        this.game.physics.arcade.overlap(player, lemons, updateScore, null, this);
-        this.game.physics.arcade.overlap(player, lemons, collectLemon, null, this);
-
-        this.game.physics.arcade.overlap(player, bob, bobAction, null, this);
-
-        this.game.physics.arcade.overlap(player, rottenlemon, collectRottenLemon, null, this);
-        this.game.physics.arcade.overlap(player, nextLevelObject, nextLevelStart, null, this);
+        // Checks for overlap
+        this.physics.add.overlap(this.player, this.lemons, this.collectLemon, null, this); // Only call collectLemon
+        this.physics.add.overlap(this.player, this.npcs, this.handleNPCollision, null, this);
+        this.input.keyboard.on('keydown-SPACE', this.advanceDialog, this);
+        this.physics.add.overlap(this.player, this.rottenlemon, this.collectRottenLemon, null, this);
+        this.physics.add.overlap(this.player, this.nextLevelObject, this.nextLevelStart, null, this);
 
 
 
+        this.player.setVelocityX(0);
 
-        player.body.velocity.x = 0;
-
-        if (cursors.left.isDown)
-        {
-            player.body.velocity.x = -200;
-
-            if (facing != 'left')
-            {
-                player.animations.play('moving');
-                facing = 'left';
-                player.scale.x = -1; 
+        if (this.cursors.left.isDown) {
+            this.player.setVelocityX(-200);
+            if (this.facing != 'left') {
+                this.player.play('playerMoving', true);
+                this.facing = 'left';
+                this.player.setScale(-1, 1);
+            }
+        } else if (this.cursors.right.isDown) {
+            this.player.setVelocityX(200);
+            if (this.facing != 'right') {
+                this.player.play('playerMoving', true);
+                this.facing = 'right';
+                this.player.setScale(1, 1);
+            }
+        } else {
+            if (this.facing != 'idle') {
+                this.player.anims.stop();
+                if (this.facing == 'left') {
+                    this.player.setFrame(0);
+                    this.player.setScale(-1, 1);
+                } else {
+                    this.player.setFrame(0);
+                    this.player.setScale(1, 1);
+                }
+                this.facing = 'idle';
             }
         }
-        else if (cursors.right.isDown)
-        {
-            player.body.velocity.x = 200
 
-            if (facing != 'right')
-            {
-                player.animations.play('moving');
-                facing = 'right';
-                player.scale.x = 1; 
+        if (this.jumpButton.isDown && this.player.body.onFloor() && this.time.now > this.jumpTimer) {
+            this.player.setVelocityY(-315);
+            this.jumpTimer = this.time.now + 750;
+        }
 
+        this.scoreText.setText(this.score);
+        this.updateBob();
+    },
+
+    updateBob: function() {
+        if (!this.bob || !this.bob.body) {
+            return;
+        }
+
+        const wanderSpeed = 30; // Adjust for desired wandering speed
+        const targetUpdateInterval = 650; // Adjust for how often Bob picks a new target
+        const proximityThreshold = 50; // How close Bob needs to be to the target to stop
+
+        if (this.time.now > this.bob.nextTargetTime) {
+            this.randomx = Phaser.Math.Between(100, this.layer.width - 100); // Stay within reasonable bounds
+            this.bob.nextTargetTime = this.time.now + targetUpdateInterval;
+        }
+
+        const distanceToTarget = Math.abs(this.randomx - this.bob.x);
+
+        if (distanceToTarget > proximityThreshold) {
+            if (this.randomx > this.bob.x) {
+                this.bob.setVelocityX(wanderSpeed);
+                this.bob.setScale(1, 1);
+            } else if (this.randomx < this.bob.x) {
+                this.bob.setVelocityX(-wanderSpeed);
+                this.bob.setScale(-1, 1);
+            }
+        } else {
+            this.bob.setVelocityX(0); // Stop when close to the target
+        }
+
+        this.bob.play('bobMoving', true);
+    },
+
+    resetPlayer: function() { // Moved resetPlayer into the prototype
+        this.player.setPosition(this.pStartX, this.pStartY);
+        this.time.addEvent({
+            delay: 500,
+            callback: this.resetPlayerPos,
+            callbackScope: this,
+            loop: false
+        });
+        this.playerAlive = false;
+    },
+
+    resetPlayerPos: function() { // Moved resetPlayerPos into the prototype
+        this.playerAlive = true;
+    },
+
+    handleNPCollision: function(player, npc) {
+        if (!this.isDialogVisible) {
+            this.startDialog(npc);
+        }
+    },
+
+    startDialog: function(npc) {
+        this.isDialogVisible = true;
+        this.currentCompanion = npc;
+        this.currentDialogLines = this.dialogData[npc.name] || ["(No dialog available)"];
+        this.currentDialogIndex = 0;
+        this.showDialogLine();
+        this.dialogBox.setVisible(true);
+    },
+
+    showDialogLine: function() {
+        this.dialogText.setText(this.currentDialogLines[this.currentDialogIndex]);
+    },
+
+    advanceDialog: function() {
+        if (this.isDialogVisible) {
+            this.currentDialogIndex++;
+            if (this.currentDialogIndex < this.currentDialogLines.length) {
+                this.showDialogLine();
+            } else {
+                // End of dialog
+                this.isDialogVisible = false;
+                this.dialogBox.setVisible(false);
+                this.currentCompanion = null;
             }
         }
+    },
+  
+    nextLevelStart: function(player, tile) { // Moved nextLevelStart into the prototype
+        this.resetPlayer();
+        this.scene.start('levelTwoState');
+    },
     
-        else
-        {
-            if (facing != 'idle')
-            {
-                player.animations.stop();
+    collectLemon: function(player, lemon) {
+    
+        lemon.disableBody(true, true); // This should now work!
 
-                if (facing == 'left')
-                {
-                    player.frame = 0;
-                    player.scale.x = -1; 
-                }
-                else
-                {
-                    player.frame = 0;
-                    player.scale.x = 1;
-                }
+        this.score += 1;
+        this.scoreText.setText(this.score);
+        // You might want to play a sound effect here
+        // if (this.sfx) {
+        //     this.sfx.play('coin');
+        // }
+    },
 
-                facing = 'idle';
-            }
-        }
-
-        if (jumpButton.isDown && player.body.onFloor() && this.game.time.now > jumpTimer)
-        {
-            player.body.velocity.y = -315;
-            jumpTimer = this.game.time.now + 750;
-        }
-
-        // Update NPC movement
-        this.game.time.events.loop(Phaser.Timer.SECOND, updateBob, this);
-        scoreText.setText(score);
-
-        // Show dialogue if exists
-
-    }
-}
-
-
-function updateBob() {
-
-
-    if (randomx > bob.x){
-         
-            bob.body.velocity.x = 50;
-            bob.scale.x = 1;
+    collectRottenLemon: function(player, rottenLemon) { // Added a basic collectRottenLemon
+        console.log('Ouch! Rotten lemon!');
+        rottenLemon.disableBody(true, true);
+        this.health -= 1;
+        // Update health HUD here
     }
 
-    if (randomx < bob.x){
-         
-            bob.body.velocity.x = -50;
-            bob.scale.x = -1;
-    }
-
-    if (counter > 1000) { 
-
-         randomx = this.game.rnd.integerInRange(0, 1600);
-         counter = 0;
-
-    }
-
-
-    bob.animations.play('moving');
-    counter++;
-
-}
-
-function bobAction() {
-       
-    bobSpeaking = 1;
-    textBubble = this.game.add.image(0, 472, 'textbubble');
-    textBubble.fixedToCamera = true;
-    this.game.paused = true;
-	if () {
-		
-		
-	}
-
-}
-
-function resetPlayer() {
-    player.x = pStartX;
-    player.y = pStartY;
-    this.game.time.events.add(500, resetPlayerPos, this);
-
-}
-
-function resetPlayerPos() {
-    playerAlive = true;
-}
-
-
-function nextLevelStart(player, tile) {
-	resetPlayer();
-    this.game.state.start('levelTwoState');
-}
+};
